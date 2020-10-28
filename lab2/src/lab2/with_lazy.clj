@@ -2,7 +2,7 @@
   (:gen-class)
   (:require [lab2.common :as common]))
 
-(defn integration-seq
+(defn- integration-seq
   [f h]
   (letfn [(integrator [acc-sum xi h]
             (lazy-seq (let [trapez (common/calculate-trapez f xi h)
@@ -10,7 +10,7 @@
                         (cons acc-sum (integrator new-sum (+ xi h) h)))))]
     (integrator 0 h h)))
 
-(defn get-integral-value
+(defn- get-integral-value
   [f seq h b]
   (let [whole-pieces-n (quot b h)
         last-piece-length (rem b h)
@@ -18,3 +18,8 @@
                             0
                             (common/calculate-trapez f b last-piece-length))]
     (+ last-piece-trapez (nth seq whole-pieces-n))))
+
+(defn integrate
+  [f h]
+  (let [integration-seq (integration-seq f h)]
+    #(get-integral-value f integration-seq h %)))
