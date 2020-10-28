@@ -11,7 +11,7 @@
 ;; 
 ;; 1. With memoization
 (def integral-memo (memo/integrate f))
-(integral-memo 10 1/10)
+(integral-memo 10 h)
 ;; 
 ;; 2. With lazy sequence
 (def integral-lazy (lazy/integrate f h))
