@@ -8,7 +8,7 @@
    coll
    (cmn/partit block-size)
    (map #(future (doall (filter f %))))
-  ;;  (cmn/spy) ; For debugging only
-   (map deref)
-   (mapcat identity)
+  ;  (cmn/spy) ; For debugging only
+   (doall)
+   (mapcat deref)
    (doall)))

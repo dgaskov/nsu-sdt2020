@@ -5,8 +5,8 @@
             [lab3.with-lazy :as with-lazy]))
 
 ; Run examples
-
-;; (time (println (not-lazy/pfilter cmn/heavy-cond (range 12) 1)))
+; (time (println (not-lazy/pfilter cmn/heavy-cond (range 12) 1))) ; "Elapsed time: 509.112305 msecs"
+; (time (println (filter cmn/heavy-cond (range 12)))) ; "Elapsed time: 6014.882469 msecs"
 
 
 ;; Lazy version is not ready yet
