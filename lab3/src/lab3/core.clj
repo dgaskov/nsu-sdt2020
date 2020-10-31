@@ -4,17 +4,17 @@
             [lab3.not-lazy :as not-lazy]
             [lab3.with-lazy :as with-lazy]))
 
-; Run examples
-; (time (println (not-lazy/pfilter cmn/heavy-cond (range 12) 1))) ; "Elapsed time: 509.112305 msecs"
-; (time (println (filter cmn/heavy-cond (range 12)))) ; "Elapsed time: 6014.882469 msecs"
+;; Run examples
 
+;; Not-lazy filter, with comparance to standart filter
+;; (time (println (not-lazy/pfilter cmn/heavy-cond (range 12) 1))) ; "Elapsed time: 509.112305 msecs"
+;; (time (println (filter cmn/heavy-cond (range 12)))) ; "Elapsed time: 6014.882469 msecs"
 
-;; Lazy version is not ready yet
-;; (time (println (take 6 (pfilter-lazy heavy-cond (range) 1)))) ; Lazy example
+;; Lazy parallel filter
+;; (time (println (take 5 (with-lazy/pfilter cmn/heavy-cond (range) 1 3))))
 
-;; (time (println (take 10 (filter heavy-cond (range)))))
-;; (time (println (take 12 (pfil heavy-cond (range)))))
-;; (time (println (take 10 (pmap heavy-inc (range)))))
+;; Standart filter
+;; (time (println (take 5 (filter cmn/heavy-cond (range)))))
 
 (defn -main
   "I don't do a whole lot ... yet."
