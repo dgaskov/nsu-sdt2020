@@ -41,28 +41,28 @@
 ;; OPERATORS
 
 (defn conjunction [expr1 expr2]
-  (cons ::conj (cons expr1 expr2)))
+  (cons ::conj (cons expr1 (list expr2))))
 
 (defn conjunction? [expr]
   (= ::conj (first expr)))
 
 
 (defn disjunction [expr1 expr2]
-  (cons ::disj (cons expr1 expr2)))
+  (cons ::disj (cons expr1 (list expr2))))
 
 (defn disjunction? [expr]
   (= ::disj (first expr)))
 
 
 (defn negation [expr]
-  (cons ::neg expr))
+  (cons ::neg (list expr)))
 
 (defn negation? [expr]
-  (cons ::neg expr))
+  (= ::neg (first expr)))
 
 
 (defn implication [expr1 expr2]
-  (cons ::impl (cons expr1 expr2)))
+  (cons ::impl (cons expr1 (list expr2))))
 
 (defn implication? [expr]
   (= ::impl (first expr)))
@@ -80,18 +80,30 @@
 
 (declare make-dnf)
 
-(def express-in-basis-rules
+(def expression-table
   (list
+  ;;  Expressions, which are `atoms` - constants, varables,
+  ;;  conjunction, disjunction and negation should be passed as is.
+   [(fn [expr] (or (constant? expr)
+                   (variable? expr)
+                   (conjunction? expr)
+                   (disjunction? expr)
+                   (negation? expr)))
+    identity]
+
    [(fn [expr] (implication? expr))
-    (fn [expr]
-      (let [[a b] (args expr)]
-        (disjunction (negation a) b)))]))
+    (fn [expr] (let [[a b] (args expr)]
+                 (disjunction (negation a) b)))]))
 
 (defn express-in-basis
   [expr]
-  ((some (fn [rule]
-           (if ((first rule) expr)
-             (second rule)
-             false))
-         express-in-basis-rules)
-   expr))
+  (if-let [transform (some (fn [rule]
+                             (if ((first rule) expr)
+                               (second rule)
+                               false))
+                           expression-table)]
+    (transform expr)
+    (throw (ex-info
+            "Could not found any rules for given expression"
+            {:expresion expr
+             :number-of-rules (count expression-table)}))))
