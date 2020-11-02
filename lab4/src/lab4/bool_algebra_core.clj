@@ -69,41 +69,59 @@
 
 
 
-;; UTILS
+;; COMMON UTILS
 
 (defn args [expr]
   (rest expr))
 
+(defn apply-transform
+  [expr table]
+  (if-let [transform (some (fn [rule]
+                             (if ((first rule) expr)
+                               (second rule)
+                               false))
+                           table)]
+    (transform expr)
+    (throw (ex-info
+            "Could not found any rules for given expression"
+            {:expresion expr
+             :number-of-rules (count table)}))))
 
 
-;; ENGINE
 
-(declare make-dnf)
+;; STAGE 1. EXPRESSING EXPRESSIONS USING BASIS
+(declare express-in-basis)
 
-(def expression-table
+(def ^:private basis-table
   (list
-  ;;  Expressions, which are `atoms` - constants, varables,
-  ;;  conjunction, disjunction and negation should be passed as is.
+  ;;  Expressions, which are `atoms` - constants, variables
+  ;;  should be passed as is.
    [(fn [expr] (or (constant? expr)
-                   (variable? expr)
-                   (conjunction? expr)
-                   (disjunction? expr)
-                   (negation? expr)))
+                   (variable? expr)))
     identity]
+
+   [(fn [expr] (conjunction? expr))
+    (fn [expr] (let [[a b] (args expr)]
+                 (conjunction (express-in-basis a)
+                              (express-in-basis b))))]
+
+   [(fn [expr] (disjunction? expr))
+    (fn [expr] (let [[a b] (args expr)]
+                 (disjunction (express-in-basis a)
+                              (express-in-basis b))))]
+
+   [(fn [expr] (negation? expr))
+    (fn [expr] (let [[arg] (args expr)]
+                 (negation (express-in-basis arg))))]
 
    [(fn [expr] (implication? expr))
     (fn [expr] (let [[a b] (args expr)]
                  (disjunction (negation a) b)))]))
 
-(defn express-in-basis
-  [expr]
-  (if-let [transform (some (fn [rule]
-                             (if ((first rule) expr)
-                               (second rule)
-                               false))
-                           expression-table)]
-    (transform expr)
-    (throw (ex-info
-            "Could not found any rules for given expression"
-            {:expresion expr
-             :number-of-rules (count expression-table)}))))
+(defn express-in-basis [expr] (apply-transform expr basis-table))
+
+
+
+;; STAGE 2. MOVE NEGATION INTO CONSTANTS AND VARIABLES
+
+;; (def ^:private negation-table)

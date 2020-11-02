@@ -27,6 +27,7 @@
   (let [arg1 (alcore/variable :x)
         arg2 (alcore/variable :y)
         arg3 (alcore/constant false)]
+
     (test/testing "Testing conjunction"
       (test/are [expr] (alcore/conjunction? expr)
         (alcore/conjunction arg1 arg2)
@@ -54,7 +55,7 @@
         (alcore/implication arg2 arg3)
         (alcore/implication arg1 arg1)))))
 
-;; EXPRESSION IN BASIS
+;; STAGE 1. EXPRESSION OF BASIS OPS - must be identity
 
 (test/deftest test-expression-of-basis
   (let [var1 (alcore/variable :x)
@@ -103,7 +104,8 @@
         (test/is (= expr1 neg1))
         (test/is (= expr2 neg2))))))
 
-;; EXPRESSION OF COMPLEX
+;; STAGE 1. EXPRESSION OF COMPLEX OPS
+;; (implication, XOR i. e.) - must be converted to basis
 
 (test/deftest test-expression-of-complex
   (let [var1 (alcore/variable :x)
@@ -112,12 +114,37 @@
         const-false (alcore/constant false)]
 
     (test/testing "Testing expression of implication"
-      (let [impl1 (alcore/implication var1 var2)
-            impl2 (alcore/implication var1 const-true)
+      (let [impl (alcore/implication var1 var2)
+            expr (alcore/express-in-basis impl)
 
-            expr1 (alcore/express-in-basis impl1)
-            expr2 (alcore/express-in-basis impl2)]
-        (test/is (alcore/disjunction? expr1))
-        (test/is (alcore/disjunction? expr2))))))
+            [a b] (alcore/args expr)]
+        (test/is (alcore/disjunction? expr))
+        (test/is (= a (alcore/negation var1)))
+        (test/is (= b var2))))
+
+    (test/testing "Testing expression of nested implication"
+      (let [;; (x -> y)
+            impl (alcore/implication var1 var2)
+
+            ;; (x -> y) ^ true
+            conj2 (alcore/conjunction impl const-true)
+
+            ;; Must be (!x v y) ^ true
+            expr1 (alcore/express-in-basis conj2)]
+
+        ;; Example of long, var-by-var testing
+        (test/is (alcore/conjunction? expr1))
+        (let [[disj ttrue] (alcore/args expr1)]
+          (test/is (alcore/disjunction? disj))
+          (test/is (alcore/constant? ttrue))
+          (let [[not-var1 vvar2] (alcore/args disj)
+                [vvar1] (alcore/args not-var1)]
+            (test/is (alcore/negation? not-var1))
+            (test/is (= var1 vvar1))
+            (test/is (= var2 vvar2))))
+        ;; Same result, using construction of end expression
+        (test/is (= expr1
+                    (alcore/conjunction (alcore/disjunction (alcore/negation var1) var2)
+                                        (alcore/constant true))))))))
 
 (test/run-tests 'lab4.core-test)
