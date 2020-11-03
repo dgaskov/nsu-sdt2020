@@ -149,9 +149,37 @@
 
 ;; STAGE 2. PUSH NEGATION TO ATOMS
 
+(test/deftest test-push-negation-to-atoms
+  (let [x (alcore/variable :x)
+        y (alcore/variable :y)]
+    (test/testing "Testing simple negation push: !(x ^ y) => (!x v !y)"
+      (test/is (= (alcore/push-negation-to-atoms
+                   (alcore/negation (alcore/disjunction x y)))
+
+                  (alcore/conjunction (alcore/negation x)
+                                      (alcore/negation y)))))
+
+    (test/testing "Testing simple negation push: !(x v !y) => (!x ^ y)"
+      (test/is (= (alcore/push-negation-to-atoms
+                   (alcore/negation (alcore/conjunction (alcore/negation x) y)))
+
+                  (alcore/disjunction x (alcore/negation y)))))
+
+    (test/testing "Testing negation push: (x ^ !(x v y)) => (x ^ (!x ^ !y))"
+      (test/is (= (alcore/push-negation-to-atoms
+                   (alcore/conjunction x (alcore/negation (alcore/disjunction x y))))
+
+                  (alcore/conjunction x (alcore/conjunction (alcore/negation x)
+                                                            (alcore/negation y))))))
+
+    (test/testing "Testing complex negation push: !(x ^ !(!y v x)) => (!x v (!y v x))"
+      (test/is (= (alcore/push-negation-to-atoms
+                   (alcore/negation (alcore/conjunction x (alcore/negation
+                                                           (alcore/disjunction (alcore/negation y)
+                                                                               x)))))
+
+                  (alcore/disjunction (alcore/negation x)
+                                      (alcore/disjunction (alcore/negation y)
+                                                          x)))))))
+
 (test/run-tests 'lab4.core-test)
-
-(def expr (alcore/negation (alcore/disjunction (alcore/negation (alcore/variable :x))
-                                               (alcore/negation (alcore/variable :y)))))
-
-(alcore/push-negation-to-atoms expr)
