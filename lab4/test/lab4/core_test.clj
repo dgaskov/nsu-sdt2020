@@ -147,4 +147,11 @@
                     (alcore/conjunction (alcore/disjunction (alcore/negation var1) var2)
                                         (alcore/constant true))))))))
 
+;; STAGE 2. PUSH NEGATION TO ATOMS
+
 (test/run-tests 'lab4.core-test)
+
+(def expr (alcore/negation (alcore/disjunction (alcore/negation (alcore/variable :x))
+                                               (alcore/negation (alcore/variable :y)))))
+
+(alcore/push-negation-to-atoms expr)

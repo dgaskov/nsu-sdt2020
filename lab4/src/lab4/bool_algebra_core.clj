@@ -71,7 +71,11 @@
 
 ;; COMMON UTILS
 
-(defn- boolean-xor [a b] (if a (if b false true) (if b true false)))
+(defn- boolean-xor
+  [a b]
+  {:pre [(boolean? a)
+         (boolean? b)]}
+  (if a (if b false true) (if b true false)))
 
 (defn args [expr]
   (rest expr))
@@ -85,12 +89,14 @@
    Second is a `transform` - function which takes an expression
    with optional arguments, and returns new modified expression"
   [expr translation-table & args]
-  (if-let [transform (some (fn [rule]
+  (if-let [[transform, rule-index] (some (fn [[idx rule]]
                              (if ((first rule) expr)
-                               (second rule)
+                               [(second rule) idx]
                                false))
-                           translation-table)]
-    (transform expr args)
+                           (map-indexed list translation-table))]
+    (do
+      (println "Apply rule with index" rule-index "and args" args)
+      (transform expr args))
     (throw (ex-info
             "Could not found any rules for given expression"
             {:expresion expr
@@ -99,7 +105,7 @@
 
 ;; BOOLEAN ENGINE HELPER UTILS. NORMALLY YOU DO NOT NEED TO USE THEM
 
-;; Stage 1. Expressing expressions in basis
+;; Stage 1. Expression of complex ops
 
 (declare ^:private express-in-basis)
 
@@ -114,28 +120,28 @@
 
    [(fn [expr] (conjunction? expr))
     (fn [expr _] (let [[a b] (args expr)]
-                 (conjunction (express-in-basis a)
-                              (express-in-basis b))))]
+                   (conjunction (express-in-basis a)
+                                (express-in-basis b))))]
 
    [(fn [expr] (disjunction? expr))
     (fn [expr _] (let [[a b] (args expr)]
-                 (disjunction (express-in-basis a)
-                              (express-in-basis b))))]
+                   (disjunction (express-in-basis a)
+                                (express-in-basis b))))]
 
    [(fn [expr] (negation? expr))
     (fn [expr _] (let [[arg] (args expr)]
-                 (negation (express-in-basis arg))))]
+                   (negation (express-in-basis arg))))]
 
    [(fn [expr] (implication? expr))
     (fn [expr _] (let [[a b] (args expr)]
-                 (disjunction (negation a) b)))]))
+                   (disjunction (negation a) b)))]))
 
 (defn express-in-basis
   [expr]
   (apply-translation-table expr express-in-basis-table))
 
 
-;; Stage 2. Push negation to constants and variables
+;; Stage 2. Push negation to atoms
 (declare push-negation-to-atoms-with-arg)
 
 (def ^:private push-negation-to-atoms-table
@@ -145,24 +151,25 @@
   ;;  should be marked with pushed negation, if needed.
    [(fn [expr] (or (constant? expr)
                    (variable? expr)))
-    (fn [expr use-negation]
-      (if use-negation
-        (negation expr)
-        expr))]
+    (fn [expr [use-negation]] (if use-negation
+                              (negation expr)
+                              expr))]
 
    [(fn [expr] (conjunction? expr))
-    (fn [expr use-negation] (let [[a b] (args expr)]
-                              (conjunction (push-negation-to-atoms-with-arg a use-negation)
-                                           (push-negation-to-atoms-with-arg b use-negation))))]
+    (fn [expr [use-negation]] (let [[a b] (args expr)
+                                  op (if use-negation disjunction conjunction)] ;; Apply De Morgan rules, if needed
+                              (op (push-negation-to-atoms-with-arg a use-negation)
+                                  (push-negation-to-atoms-with-arg b use-negation))))]
 
    [(fn [expr] (disjunction? expr))
-    (fn [expr use-negation] (let [[a b] (args expr)]
-                              (disjunction (push-negation-to-atoms-with-arg a use-negation)
-                                           (push-negation-to-atoms-with-arg b use-negation))))]
-   
+    (fn [expr [use-negation]] (let [[a b] (args expr)
+                                  op (if use-negation conjunction disjunction)] ;; Apply De Morgan rules, if needed
+                              (op (push-negation-to-atoms-with-arg a use-negation)
+                                  (push-negation-to-atoms-with-arg b use-negation))))]
+
    [(fn [expr] (negation? expr))
-    (fn [expr use-negation] (let [[arg] (args expr)]
-                              (negation (push-negation-to-atoms-with-arg arg (boolean-xor use-negation true)))))]))
+    (fn [expr [use-negation]] (let [[arg] (args expr)]
+                              (push-negation-to-atoms-with-arg arg (boolean-xor use-negation true))))]))
 
 (defn- push-negation-to-atoms-with-arg
   [expr use-negation]
