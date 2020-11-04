@@ -195,11 +195,6 @@
                           false))))
     (fn [expr _] expr)]
 
-   [(fn [expr] (disjunction? expr))
-    (fn [expr _] (let [[a b] (args expr)]
-                   (disjunction (apply-distribution-rules a)
-                                (apply-distribution-rules b))))]
-
    ;; Left distribution: (x v y) ^ z => (x ^ z) v (y ^ z)
    ;; Here x, y and z can be nested expressions as well
    [(fn [expr] (and (conjunction? expr)
@@ -222,6 +217,11 @@
                                 (conjunction (apply-distribution-rules x)
                                              (apply-distribution-rules z)))))]
    
+   
+   [(fn [expr] (disjunction? expr))
+    (fn [expr _] (let [[a b] (args expr)]
+                   (disjunction (apply-distribution-rules a)
+                                (apply-distribution-rules b))))]
 
    [(fn [expr] (conjunction? expr))
     (fn [expr _] (let [[a b] (args expr)]
