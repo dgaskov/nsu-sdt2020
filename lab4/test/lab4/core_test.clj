@@ -180,6 +180,12 @@
 
                   (alcore/disjunction (alcore/negation x)
                                       (alcore/disjunction (alcore/negation y)
-                                                          x)))))))
+                                                          x)))))
+    
+    (test/testing "Testing multply negation: !!x => x"
+      (test/is (= (alcore/push-negation-to-atoms
+                   (alcore/negation (alcore/negation x)))
+                  
+                  x)))))
 
 (test/run-tests 'lab4.core-test)

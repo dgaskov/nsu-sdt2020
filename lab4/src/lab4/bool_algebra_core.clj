@@ -71,21 +71,14 @@
 
 ;; COMMON UTILS
 
-(defn- boolean-xor
-  [a b]
-  {:pre [(boolean? a)
-         (boolean? b)]}
-  (if a (if b false true) (if b true false)))
-
 (defn args [expr]
   (rest expr))
 
 (defn apply-translation-table
-  "Appliex given transformation table to the expression.
-   Transformation table is a list of pairs (in fact, nested lists).
-   Nested list must contain a `rule` - pair of two values.
+  "Applies given translation table to the expression.
+   Translation table is a list of `rules` - pairs of two values.
    First is a `predicate`, which defines should we apply
-   this rule to the expression, or not (must return bool)
+   this rule to the expression, or not (must return bool).
    Second is a `transform` - function which takes an expression
    with optional arguments, and returns new modified expression"
   [expr translation-table & args]
@@ -95,7 +88,7 @@
                                false))
                            (map-indexed list translation-table))]
     (do
-      (println "Apply rule with index" rule-index "and args" args)
+      ;; (println "Apply rule with index" rule-index "and args" args)
       (transform expr args))
     (throw (ex-info
             "Could not found any rules for given expression"
@@ -142,7 +135,7 @@
 
 
 ;; Stage 2. Push negation to atoms
-(declare push-negation-to-atoms-with-arg)
+(declare ^:private push-negation-to-atoms-with-carry)
 
 (def ^:private push-negation-to-atoms-table
   "Uses single argument - `use-negation`, which stores current negation-carry state"
@@ -158,23 +151,23 @@
    [(fn [expr] (conjunction? expr))
     (fn [expr [use-negation]] (let [[a b] (args expr)
                                   op (if use-negation disjunction conjunction)] ;; Apply De Morgan rules, if needed
-                              (op (push-negation-to-atoms-with-arg a use-negation)
-                                  (push-negation-to-atoms-with-arg b use-negation))))]
+                              (op (push-negation-to-atoms-with-carry a use-negation)
+                                  (push-negation-to-atoms-with-carry b use-negation))))]
 
    [(fn [expr] (disjunction? expr))
     (fn [expr [use-negation]] (let [[a b] (args expr)
                                   op (if use-negation conjunction disjunction)] ;; Apply De Morgan rules, if needed
-                              (op (push-negation-to-atoms-with-arg a use-negation)
-                                  (push-negation-to-atoms-with-arg b use-negation))))]
+                              (op (push-negation-to-atoms-with-carry a use-negation)
+                                  (push-negation-to-atoms-with-carry b use-negation))))]
 
    [(fn [expr] (negation? expr))
     (fn [expr [use-negation]] (let [[arg] (args expr)]
-                              (push-negation-to-atoms-with-arg arg (boolean-xor use-negation true))))]))
+                              (push-negation-to-atoms-with-carry arg (not use-negation))))]))
 
-(defn- push-negation-to-atoms-with-arg
+(defn- push-negation-to-atoms-with-carry
   [expr use-negation]
   (apply-translation-table expr push-negation-to-atoms-table use-negation))
 
 (defn push-negation-to-atoms
   [expr]
-  (push-negation-to-atoms-with-arg expr false))
+  (push-negation-to-atoms-with-carry expr false))
