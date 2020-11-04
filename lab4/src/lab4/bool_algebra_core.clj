@@ -97,16 +97,16 @@
              :number-of-rules (count translation-table)}))))
 
 
-;; BOOLEAN ENGINE HELPER UTILS. NORMALLY YOU DO NOT NEED TO USE THEM
+
+;; INTERNAL HELPER UTILS. NORMALLY YOU DO NOT NEED TO USE THEM
 
 ;; Stage 1. Translation of complex ops into basis (atoms + conjunction, disjunction, negation)
-
 (declare ^:private apply-translation-to-basis)
 
 (def ^:private apply-translation-to-basis-table
   "No arguments are used."
   (list
-   
+
    ;;  Expressions, which are `atoms` - constants, variables
    ;;  should be passed as is.
    [(fn [expr] (or (constant? expr)
@@ -129,7 +129,8 @@
 
    [(fn [expr] (implication? expr))
     (fn [expr _] (let [[a b] (args expr)]
-                   (disjunction (negation a) b)))]))
+                   (disjunction (negation (apply-translation-to-basis a))
+                                (apply-translation-to-basis b))))]))
 
 (defn apply-translation-to-basis
   [expr]
@@ -142,7 +143,7 @@
 (def ^:private push-negation-to-atoms-table
   "Uses single argument - `use-negation`, which stores current negation-carry state"
   (list
-   
+
    ;;  Expressions, which are `atoms` - constants, variables
    ;;  should be marked with pushed negation, if needed.
    [(fn [expr] (or (constant? expr)
@@ -181,12 +182,23 @@
 (def ^:private apply-distribution-rules-table
   "No arguments are used."
   (list
-   
-   ;;  Expressions, which are `atoms` - constants, variables
+
+   ;;  Expressions, which are `atoms` - constants, variables or their's negation
    ;;  should be passed as is.
    [(fn [expr] (or (constant? expr)
-                   (variable? expr)))
+                   (variable? expr)
+
+                   (and (negation? expr)
+                        (if-let [[arg] (args expr)]
+                          (or (constant? arg)
+                              (variable? arg))
+                          false))))
     (fn [expr _] expr)]
+
+   [(fn [expr] (disjunction? expr))
+    (fn [expr _] (let [[a b] (args expr)]
+                   (disjunction (apply-distribution-rules a)
+                                (apply-distribution-rules b))))]
 
    ;; Left distribution: (x v y) ^ z => (x ^ z) v (y ^ z)
    ;; Here x, y and z can be nested expressions as well
@@ -198,7 +210,7 @@
                                              (apply-distribution-rules z))
                                 (conjunction (apply-distribution-rules y)
                                              (apply-distribution-rules z)))))]
-   
+
    ;; Right distribution: x ^ (y v z) => (x ^ y) v (x ^ z)
    ;; Here x, y and z can be nested expressions as well
    [(fn [expr] (and (conjunction? expr)
@@ -209,8 +221,27 @@
                                              (apply-distribution-rules y))
                                 (conjunction (apply-distribution-rules x)
                                              (apply-distribution-rules z)))))]
+   
+
+   [(fn [expr] (conjunction? expr))
+    (fn [expr _] (let [[a b] (args expr)]
+                   (conjunction (apply-distribution-rules a)
+                                (apply-distribution-rules b))))]
+   
    ))
 
 (defn apply-distribution-rules
   [expr]
   (apply-translation-table expr apply-distribution-rules-table))
+
+
+
+;; PUBLIC FUNCTIONS WHICH YOU NORMALLY HAVE TO USE
+
+(defn make-dnf
+  [expr]
+  (->>
+   expr
+   (apply-translation-to-basis) ;; Stage 1
+   (push-negation-to-atoms) ;; Stage 2 & 3
+   (apply-distribution-rules))) ;; Stage 4

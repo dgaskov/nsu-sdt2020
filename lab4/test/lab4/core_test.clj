@@ -2,6 +2,8 @@
   (:require [clojure.test :as test]
             [lab4.bool-algebra-core :as alcore]))
 
+
+
 ;; CONSTANTS
 
 (test/deftest test-constants
@@ -9,6 +11,8 @@
     (test/is (thrown? java.lang.AssertionError (alcore/constant 1)))
     (test/is (alcore/constant? (alcore/constant false)))
     (test/is (= true (alcore/constant-value (alcore/constant true))))))
+
+
 
 ;; VARIABLES
 
@@ -20,6 +24,8 @@
                                      (alcore/variable :x)))
     (test/is (not (alcore/same-variables? (alcore/variable :x)
                                           (alcore/variable :y))))))
+
+
 
 ;; OPERATORS
 
@@ -54,6 +60,8 @@
         (alcore/implication arg1 arg3)
         (alcore/implication arg2 arg3)
         (alcore/implication arg1 arg1)))))
+
+
 
 ;; STAGE 1. EXPRESSION OF BASIS OPS - must be identity
 
@@ -104,6 +112,8 @@
         (test/is (= expr1 neg1))
         (test/is (= expr2 neg2))))))
 
+
+
 ;; STAGE 1. EXPRESSION OF COMPLEX OPS
 ;; (implication, XOR i. e.) - must be converted to basis
 
@@ -147,32 +157,34 @@
                     (alcore/conjunction (alcore/disjunction (alcore/negation var1) var2)
                                         (alcore/constant true))))))))
 
+
+
 ;; STAGE 2 & 3. PUSH NEGATION TO ATOMS
 
 (test/deftest test-push-negation-to-atoms
   (let [x (alcore/variable :x)
         y (alcore/variable :y)]
-    (test/testing "Testing simple negation push: !(x ^ y) => (!x v !y)"
+    (test/testing "Testing simple negation push: !(x ^ y) ==> (!x v !y)"
       (test/is (= (alcore/push-negation-to-atoms
                    (alcore/negation (alcore/disjunction x y)))
 
                   (alcore/conjunction (alcore/negation x)
                                       (alcore/negation y)))))
 
-    (test/testing "Testing simple negation push: !(x v !y) => (!x ^ y)"
+    (test/testing "Testing simple negation push: !(x v !y) ==> (!x ^ y)"
       (test/is (= (alcore/push-negation-to-atoms
                    (alcore/negation (alcore/conjunction (alcore/negation x) y)))
 
                   (alcore/disjunction x (alcore/negation y)))))
 
-    (test/testing "Testing negation push: (x ^ !(x v y)) => (x ^ (!x ^ !y))"
+    (test/testing "Testing negation push: (x ^ !(x v y)) ==> (x ^ (!x ^ !y))"
       (test/is (= (alcore/push-negation-to-atoms
                    (alcore/conjunction x (alcore/negation (alcore/disjunction x y))))
 
                   (alcore/conjunction x (alcore/conjunction (alcore/negation x)
                                                             (alcore/negation y))))))
 
-    (test/testing "Testing complex negation push: !(x ^ !(!y v x)) => (!x v (!y v x))"
+    (test/testing "Testing complex negation push: !(x ^ !(!y v x)) ==> (!x v (!y v x))"
       (test/is (= (alcore/push-negation-to-atoms
                    (alcore/negation (alcore/conjunction x (alcore/negation
                                                            (alcore/disjunction (alcore/negation y)
@@ -182,11 +194,13 @@
                                       (alcore/disjunction (alcore/negation y)
                                                           x)))))
 
-    (test/testing "Testing multply negation: !!x => x"
+    (test/testing "Testing multply negation: !!x ==> x"
       (test/is (= (alcore/push-negation-to-atoms
                    (alcore/negation (alcore/negation x)))
 
                   x)))))
+
+
 
 ;; STAGE 4. APPLY DISTRIBUTION RULES
 
@@ -194,24 +208,48 @@
   (let [x (alcore/variable :x)
         y (alcore/variable :y)
         z (alcore/variable :z)]
-    
-    (test/testing "Testing applying simple left distribution: (x v y) ^ z => (x ^ z) v (y ^ z)"
 
+    (test/testing "Testing applying simple left distribution: (x v y) ^ z ==> (x ^ z) v (y ^ z)"
       (test/is (= (alcore/apply-distribution-rules
                    (alcore/conjunction (alcore/disjunction x y)
                                        z))
+                  
                   (alcore/disjunction (alcore/conjunction x z)
                                       (alcore/conjunction y z)))))
-    
-    (test/testing "Testing applying simple right distribution: x ^ (y v z) => (x ^ y) v (x ^ z)"
 
+    (test/testing "Testing applying simple right distribution: x ^ (y v z) ==> (x ^ y) v (x ^ z)"
       (test/is (= (alcore/apply-distribution-rules
                    (alcore/conjunction x
                                        (alcore/disjunction y z)))
+                  
                   (alcore/disjunction (alcore/conjunction x y)
-                                      (alcore/conjunction x z)))))
-    ))
+                                      (alcore/conjunction x z)))))))
 
 
+
+;; DNF. COMBINATION OF ALL THE METHODS ABOVE
+
+(test/deftest test-make-dnf
+  (let [a (alcore/variable :a)
+        b (alcore/variable :b)
+        c (alcore/variable :c)
+        d (alcore/variable :d)]
+    
+    (test/testing "Testing creation of DNF: ((a & !b) | c) -> (d | !(b -> c)) ==> ((!a & !c) | (b & !c)) | (d | (b & !c))"
+      (test/is (= (alcore/make-dnf
+                   (alcore/implication (alcore/disjunction (alcore/conjunction a (alcore/negation b))
+                                                           c)
+                                       (alcore/disjunction d
+                                                           (alcore/negation (alcore/implication b c)))))
+
+                  (alcore/disjunction (alcore/disjunction (alcore/conjunction (alcore/negation a)
+                                                                              (alcore/negation c))
+                                                          (alcore/conjunction b
+                                                                              (alcore/negation c)))
+                                      (alcore/disjunction d
+                                                          (alcore/conjunction b
+                                                                              (alcore/negation c))))))
+                  
+    )))
 
 (test/run-tests 'lab4.core-test)
