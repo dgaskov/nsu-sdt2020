@@ -147,7 +147,7 @@
                     (alcore/conjunction (alcore/disjunction (alcore/negation var1) var2)
                                         (alcore/constant true))))))))
 
-;; STAGE 2. PUSH NEGATION TO ATOMS
+;; STAGE 2 & 3. PUSH NEGATION TO ATOMS
 
 (test/deftest test-push-negation-to-atoms
   (let [x (alcore/variable :x)
@@ -181,11 +181,37 @@
                   (alcore/disjunction (alcore/negation x)
                                       (alcore/disjunction (alcore/negation y)
                                                           x)))))
-    
+
     (test/testing "Testing multply negation: !!x => x"
       (test/is (= (alcore/push-negation-to-atoms
                    (alcore/negation (alcore/negation x)))
-                  
+
                   x)))))
+
+;; STAGE 4. APPLY DISTRIBUTION RULES
+
+(test/deftest test-applying-distribution
+  (let [x (alcore/variable :x)
+        y (alcore/variable :y)
+        z (alcore/variable :z)]
+    
+    (test/testing "Testing applying simple left distribution: (x v y) ^ z => (x ^ z) v (y ^ z)"
+
+      (test/is (= (alcore/apply-distribution-rules
+                   (alcore/conjunction (alcore/disjunction x y)
+                                       z))
+                  (alcore/disjunction (alcore/conjunction x z)
+                                      (alcore/conjunction y z)))))
+    
+    (test/testing "Testing applying simple right distribution: x ^ (y v z) => (x ^ y) v (x ^ z)"
+
+      (test/is (= (alcore/apply-distribution-rules
+                   (alcore/conjunction x
+                                       (alcore/disjunction y z)))
+                  (alcore/disjunction (alcore/conjunction x y)
+                                      (alcore/conjunction x z)))))
+    ))
+
+
 
 (test/run-tests 'lab4.core-test)

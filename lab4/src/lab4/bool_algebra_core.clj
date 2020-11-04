@@ -106,8 +106,9 @@
 (def ^:private apply-translation-to-basis-table
   "No arguments are used."
   (list
-  ;;  Expressions, which are `atoms` - constants, variables
-  ;;  should be passed as is.
+   
+   ;;  Expressions, which are `atoms` - constants, variables
+   ;;  should be passed as is.
    [(fn [expr] (or (constant? expr)
                    (variable? expr)))
     (fn [expr _] expr)]
@@ -141,8 +142,9 @@
 (def ^:private push-negation-to-atoms-table
   "Uses single argument - `use-negation`, which stores current negation-carry state"
   (list
-  ;;  Expressions, which are `atoms` - constants, variables
-  ;;  should be marked with pushed negation, if needed.
+   
+   ;;  Expressions, which are `atoms` - constants, variables
+   ;;  should be marked with pushed negation, if needed.
    [(fn [expr] (or (constant? expr)
                    (variable? expr)))
     (fn [expr [use-negation]] (if use-negation
@@ -179,6 +181,12 @@
 (def ^:private apply-distribution-rules-table
   "No arguments are used."
   (list
+   
+   ;;  Expressions, which are `atoms` - constants, variables
+   ;;  should be passed as is.
+   [(fn [expr] (or (constant? expr)
+                   (variable? expr)))
+    (fn [expr _] expr)]
 
    ;; Left distribution: (x v y) ^ z => (x ^ z) v (y ^ z)
    ;; Here x, y and z can be nested expressions as well
