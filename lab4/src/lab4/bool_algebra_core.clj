@@ -82,11 +82,12 @@
    Second is a `transform` - function which takes an expression
    with optional arguments, and returns new modified expression"
   [expr translation-table & args]
-  (if-let [[transform, rule-index] (some (fn [[idx rule]]
-                             (if ((first rule) expr)
-                               [(second rule) idx]
-                               false))
-                           (map-indexed list translation-table))]
+  (if-some [[transform
+             rule-index] (some (fn [[idx rule]]
+                                 (if ((first rule) expr)
+                                   [(second rule) idx]
+                                   false))
+                               (map-indexed list translation-table))]
     (do
       ;; (println "Apply rule with index" rule-index "and args" args)
       (transform expr args))
@@ -98,11 +99,11 @@
 
 ;; BOOLEAN ENGINE HELPER UTILS. NORMALLY YOU DO NOT NEED TO USE THEM
 
-;; Stage 1. Expression of complex ops
+;; Stage 1. Translation of complex ops into basis (atoms + conjunction, disjunction, negation)
 
-(declare ^:private express-in-basis)
+(declare ^:private apply-translation-to-basis)
 
-(def ^:private express-in-basis-table
+(def ^:private apply-translation-to-basis-table
   "No arguments are used."
   (list
   ;;  Expressions, which are `atoms` - constants, variables
@@ -113,25 +114,25 @@
 
    [(fn [expr] (conjunction? expr))
     (fn [expr _] (let [[a b] (args expr)]
-                   (conjunction (express-in-basis a)
-                                (express-in-basis b))))]
+                   (conjunction (apply-translation-to-basis a)
+                                (apply-translation-to-basis b))))]
 
    [(fn [expr] (disjunction? expr))
     (fn [expr _] (let [[a b] (args expr)]
-                   (disjunction (express-in-basis a)
-                                (express-in-basis b))))]
+                   (disjunction (apply-translation-to-basis a)
+                                (apply-translation-to-basis b))))]
 
    [(fn [expr] (negation? expr))
     (fn [expr _] (let [[arg] (args expr)]
-                   (negation (express-in-basis arg))))]
+                   (negation (apply-translation-to-basis arg))))]
 
    [(fn [expr] (implication? expr))
     (fn [expr _] (let [[a b] (args expr)]
                    (disjunction (negation a) b)))]))
 
-(defn express-in-basis
+(defn apply-translation-to-basis
   [expr]
-  (apply-translation-table expr express-in-basis-table))
+  (apply-translation-table expr apply-translation-to-basis-table))
 
 
 ;; Stage 2 & 3. Push negation to atoms and remove all double-negations
@@ -145,24 +146,24 @@
    [(fn [expr] (or (constant? expr)
                    (variable? expr)))
     (fn [expr [use-negation]] (if use-negation
-                              (negation expr)
-                              expr))]
+                                (negation expr)
+                                expr))]
 
    [(fn [expr] (conjunction? expr))
     (fn [expr [use-negation]] (let [[a b] (args expr)
-                                  op (if use-negation disjunction conjunction)] ;; Apply De Morgan rules, if needed
-                              (op (push-negation-to-atoms-with-carry a use-negation)
-                                  (push-negation-to-atoms-with-carry b use-negation))))]
+                                    op (if use-negation disjunction conjunction)] ;; Apply De Morgan rules, if needed
+                                (op (push-negation-to-atoms-with-carry a use-negation)
+                                    (push-negation-to-atoms-with-carry b use-negation))))]
 
    [(fn [expr] (disjunction? expr))
     (fn [expr [use-negation]] (let [[a b] (args expr)
-                                  op (if use-negation conjunction disjunction)] ;; Apply De Morgan rules, if needed
-                              (op (push-negation-to-atoms-with-carry a use-negation)
-                                  (push-negation-to-atoms-with-carry b use-negation))))]
+                                    op (if use-negation conjunction disjunction)] ;; Apply De Morgan rules, if needed
+                                (op (push-negation-to-atoms-with-carry a use-negation)
+                                    (push-negation-to-atoms-with-carry b use-negation))))]
 
    [(fn [expr] (negation? expr))
     (fn [expr [use-negation]] (let [[arg] (args expr)]
-                              (push-negation-to-atoms-with-carry arg (not use-negation))))]))
+                                (push-negation-to-atoms-with-carry arg (not use-negation))))]))
 
 (defn- push-negation-to-atoms-with-carry
   [expr use-negation]
@@ -171,3 +172,37 @@
 (defn push-negation-to-atoms
   [expr]
   (push-negation-to-atoms-with-carry expr false))
+
+;; Stage 4. Apply distribution rules
+(declare apply-distribution-rules)
+
+(def ^:private apply-distribution-rules-table
+  "No arguments are used."
+  (list
+
+   ;; Left distribution: (x v y) ^ z => (x ^ z) v (y ^ z)
+   ;; Here x, y and z can be nested expressions as well
+   [(fn [expr] (and (conjunction? expr)
+                    (disjunction? (first (args expr)))))
+    (fn [expr _] (let [[x-disjunction-y z] (args expr)
+                       [x y] (args x-disjunction-y)]
+                   (disjunction (conjunction (apply-distribution-rules x)
+                                             (apply-distribution-rules z))
+                                (conjunction (apply-distribution-rules y)
+                                             (apply-distribution-rules z)))))]
+   
+   ;; Right distribution: x ^ (y v z) => (x ^ y) v (x ^ z)
+   ;; Here x, y and z can be nested expressions as well
+   [(fn [expr] (and (conjunction? expr)
+                    (disjunction? (second (args expr)))))
+    (fn [expr _] (let [[x y-disjunction-z] (args expr)
+                       [y z] (args y-disjunction-z)]
+                   (disjunction (conjunction (apply-distribution-rules x)
+                                             (apply-distribution-rules y))
+                                (conjunction (apply-distribution-rules x)
+                                             (apply-distribution-rules z)))))]
+   ))
+
+(defn apply-distribution-rules
+  [expr]
+  (apply-translation-table expr apply-distribution-rules-table))

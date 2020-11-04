@@ -64,15 +64,15 @@
         const-false (alcore/constant false)]
 
     (test/testing "Testing expression of constants"
-      (let [expr1 (alcore/express-in-basis const-true)
-            expr2 (alcore/express-in-basis const-false)]
+      (let [expr1 (alcore/apply-translation-to-basis const-true)
+            expr2 (alcore/apply-translation-to-basis const-false)]
         (test/is (= expr1 const-true))
         (test/is (and (alcore/constant? expr2) ; More granular validation
                       (= false (alcore/constant-value expr2))))))
 
     (test/testing "Testing expression of variables"
-      (let [expr1 (alcore/express-in-basis var1)
-            expr2 (alcore/express-in-basis var2)]
+      (let [expr1 (alcore/apply-translation-to-basis var1)
+            expr2 (alcore/apply-translation-to-basis var2)]
         (test/is (= expr1 var1))
         (test/is (and (alcore/variable? expr2) ; More granular validation
                       (not= :x (alcore/constant-value expr2))))))
@@ -81,8 +81,8 @@
       (let [conj1 (alcore/conjunction var1 var2)
             conj2 (alcore/conjunction var1 const-true)
 
-            expr1 (alcore/express-in-basis conj1)
-            expr2 (alcore/express-in-basis conj2)]
+            expr1 (alcore/apply-translation-to-basis conj1)
+            expr2 (alcore/apply-translation-to-basis conj2)]
         (test/is (= expr1 conj1))
         (test/is (= expr2 conj2))))
 
@@ -90,8 +90,8 @@
       (let [disj1 (alcore/disjunction var1 var2)
             disj2 (alcore/disjunction var1 const-true)
 
-            expr1 (alcore/express-in-basis disj1)
-            expr2 (alcore/express-in-basis disj2)]
+            expr1 (alcore/apply-translation-to-basis disj1)
+            expr2 (alcore/apply-translation-to-basis disj2)]
         (test/is (= expr1 disj1))
         (test/is (= expr2 disj2))))
 
@@ -99,8 +99,8 @@
       (let [neg1 (alcore/negation const-true)
             neg2 (alcore/negation var1)
 
-            expr1 (alcore/express-in-basis neg1)
-            expr2 (alcore/express-in-basis neg2)]
+            expr1 (alcore/apply-translation-to-basis neg1)
+            expr2 (alcore/apply-translation-to-basis neg2)]
         (test/is (= expr1 neg1))
         (test/is (= expr2 neg2))))))
 
@@ -115,7 +115,7 @@
 
     (test/testing "Testing expression of implication"
       (let [impl (alcore/implication var1 var2)
-            expr (alcore/express-in-basis impl)
+            expr (alcore/apply-translation-to-basis impl)
 
             [a b] (alcore/args expr)]
         (test/is (alcore/disjunction? expr))
@@ -130,7 +130,7 @@
             conj2 (alcore/conjunction impl const-true)
 
             ;; Must be (!x v y) ^ true
-            expr1 (alcore/express-in-basis conj2)]
+            expr1 (alcore/apply-translation-to-basis conj2)]
 
         ;; Example of long, var-by-var testing
         (test/is (alcore/conjunction? expr1))
