@@ -134,7 +134,7 @@
   (apply-translation-table expr express-in-basis-table))
 
 
-;; Stage 2. Push negation to atoms
+;; Stage 2 & 3. Push negation to atoms and remove all double-negations
 (declare ^:private push-negation-to-atoms-with-carry)
 
 (def ^:private push-negation-to-atoms-table
