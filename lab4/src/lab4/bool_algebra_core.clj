@@ -103,7 +103,7 @@
 ;; Stage 1. Translation of complex ops into basis (atoms + conjunction, disjunction, negation)
 (declare ^:private apply-translation-to-basis)
 
-(def ^:private apply-translation-to-basis-table
+(def ^:private apply-translation-to-basis--table
   "No arguments are used."
   (list
 
@@ -134,13 +134,13 @@
 
 (defn apply-translation-to-basis
   [expr]
-  (apply-translation-table expr apply-translation-to-basis-table))
+  (apply-translation-table expr apply-translation-to-basis--table))
 
 
 ;; Stage 2 & 3. Push negation to atoms and remove all double-negations
 (declare ^:private push-negation-to-atoms-with-carry)
 
-(def ^:private push-negation-to-atoms-table
+(def ^:private push-negation-to-atoms--table
   "Uses single argument - `use-negation`, which stores current negation-carry state"
   (list
 
@@ -170,7 +170,7 @@
 
 (defn- push-negation-to-atoms-with-carry
   [expr use-negation]
-  (apply-translation-table expr push-negation-to-atoms-table use-negation))
+  (apply-translation-table expr push-negation-to-atoms--table use-negation))
 
 (defn push-negation-to-atoms
   [expr]
@@ -179,7 +179,7 @@
 ;; Stage 4. Apply distribution rules
 (declare apply-distribution-rules)
 
-(def ^:private apply-distribution-rules-table
+(def ^:private apply-distribution-rules--table
   "No arguments are used."
   (list
 
@@ -216,8 +216,7 @@
                                              (apply-distribution-rules y))
                                 (conjunction (apply-distribution-rules x)
                                              (apply-distribution-rules z)))))]
-   
-   
+
    [(fn [expr] (disjunction? expr))
     (fn [expr _] (let [[a b] (args expr)]
                    (disjunction (apply-distribution-rules a)
@@ -226,15 +225,43 @@
    [(fn [expr] (conjunction? expr))
     (fn [expr _] (let [[a b] (args expr)]
                    (conjunction (apply-distribution-rules a)
-                                (apply-distribution-rules b))))]
-   
-   ))
+                                (apply-distribution-rules b))))]))
 
 (defn apply-distribution-rules
   [expr]
-  (apply-translation-table expr apply-distribution-rules-table))
+  (apply-translation-table expr apply-distribution-rules--table))
 
 
+;; SIGNIFYING VARIABLES: i. e. replace `x` with `false`
+(declare signify-variable-with-value)
+
+(def ^:private signify-variable-with-value--table
+  (list
+   [(fn [expr] (constant? expr))
+    (fn [expr _] expr)]
+
+   [(fn [expr] (variable? expr))
+    (fn [expr [var val]] (if (same-variables? expr var)
+                           (constant val)
+                           expr))]
+
+   [(fn [expr] (conjunction? expr))
+    (fn [expr [var val]] (let [[a b] (args expr)]
+                           (conjunction (signify-variable-with-value a var val)
+                                        (signify-variable-with-value b var val))))]
+
+   [(fn [expr] (disjunction? expr))
+    (fn [expr [var val]] (let [[a b] (args expr)]
+                           (disjunction (signify-variable-with-value a var val)
+                                        (signify-variable-with-value b var val))))]
+
+   [(fn [expr] (negation? expr))
+    (fn [expr [var val]] (let [[arg] (args expr)]
+                           (negation (signify-variable-with-value arg var val))))]))
+
+(defn- signify-variable-with-value
+  [expr var val]
+  (apply-translation-table expr signify-variable-with-value--table var val))
 
 ;; PUBLIC FUNCTIONS WHICH YOU NORMALLY HAVE TO USE
 
@@ -245,3 +272,13 @@
    (apply-translation-to-basis) ;; Stage 1
    (push-negation-to-atoms) ;; Stage 2 & 3
    (apply-distribution-rules))) ;; Stage 4
+
+(defn signify-variable
+  [expr var val]
+  {:pre [(variable? var)
+         (boolean? val)]}
+  (signify-variable-with-value expr var val))
+
+(defn signify-variable-and-make-dnf
+  [expr var val]
+  (make-dnf (signify-variable-with-value expr var val)))

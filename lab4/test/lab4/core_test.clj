@@ -234,7 +234,7 @@
         b (alcore/variable :b)
         c (alcore/variable :c)
         d (alcore/variable :d)]
-    
+
     (test/testing "Testing creation of DNF: ((a & !b) | c) -> (d | !(b -> c)) ==> ((!a & !c) | (b & !c)) | (d | (b & !c))"
       (test/is (= (alcore/make-dnf
                    (alcore/implication (alcore/disjunction (alcore/conjunction a (alcore/negation b))
@@ -248,8 +248,34 @@
                                                                               (alcore/negation c)))
                                       (alcore/disjunction d
                                                           (alcore/conjunction b
-                                                                              (alcore/negation c))))))
-                  
-    )))
+                                                                              (alcore/negation c)))))))))
+
+
+
+;; SIGNIFYING VARIABLES
+
+(test/deftest test-signifying-variables
+  (let [x (alcore/variable :x)
+        y (alcore/variable :y)
+
+        expr1 (alcore/conjunction x y)
+        expr2 (alcore/disjunction (alcore/conjunction x y)
+                                  (alcore/negation (alcore/conjunction (alcore/negation x)
+                                                                       y)))]
+    (test/testing "Testing simple variable signifying: x ==> true"
+      (test/is (= (alcore/signify-variable x x true)
+                  (alcore/constant true))))
+
+    (test/testing "Testing simple variable signifying: (x ^ y) ==> (true ^ y)"
+      (test/is (= (alcore/signify-variable expr1 x true)
+                  (alcore/conjunction (alcore/constant true)
+                                      y))))
+
+    (test/testing "Testing complex variable signifying: (x ^ y) | !(!x ^ y) ==> (false ^ y) | !(!false ^ y)"
+      (test/is (= (alcore/signify-variable expr2 x false)
+                  (alcore/disjunction (alcore/conjunction (alcore/constant false)
+                                                          y)
+                                      (alcore/negation (alcore/conjunction (alcore/negation (alcore/constant false))
+                                                                           y))))))))
 
 (test/run-tests 'lab4.core-test)
