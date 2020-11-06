@@ -231,6 +231,7 @@
 
 (test/deftest test-simplify
   (let [a (alcore/variable :a)
+        b (alcore/variable :b)
         const-false (alcore/constant false)
         const-true (alcore/constant true)]
 
@@ -272,7 +273,7 @@
       (test/is (= (alcore/simplify
                    (alcore/conjunction (alcore/negation a) a))
                   const-false)))
-    
+
     (test/testing "Testing simplification of excluded third law"
       (test/is (= (alcore/simplify
                    (alcore/disjunction a (alcore/negation a)))
@@ -281,7 +282,26 @@
       (test/is (= (alcore/simplify
                    (alcore/disjunction (alcore/negation a) a))
                   const-true)))
-    ))
+
+    (test/testing "Testing simplification of constant"
+      (test/is (= (alcore/simplify
+                   const-true)
+                  const-true)))
+
+    (test/testing "Testing simplification of variable"
+      (test/is (= (alcore/simplify
+                   a)
+                  a)))
+
+    (test/testing "Testing simplification of conjunction"
+      (test/is (= (alcore/simplify
+                   (alcore/conjunction a b))
+                  (alcore/conjunction a b))))
+
+    (test/testing "Testing simplification of negation"
+      (test/is (= (alcore/simplify
+                   (alcore/negation a))
+                  (alcore/negation a))))))
 
 
 ;; DNF. COMBINATION OF ALL THE METHODS ABOVE

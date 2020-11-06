@@ -85,7 +85,10 @@
 
 (defn operation [expr]
   (when (operation? expr)
-    (first expr)))
+    (cond
+      (conjunction? expr) conjunction
+      (disjunction? expr) disjunction
+      (negation? expr) negation)))
 
 (defn args [expr]
   (rest expr))
@@ -301,7 +304,7 @@
                       (or (= a const-false)
                           (= b const-false)))))
     (fn [_ _] (constant false))]
-   
+
    ;; Idempotation 4: a ^ true == a
    [(fn [expr] (and (conjunction? expr)
                     (let [[a b] (args expr)
@@ -311,7 +314,7 @@
     (fn [expr _] (let [[a b] (args expr)
                        const-true (constant true)]
                    (simplify (if (= a const-true) b a))))]
-   
+
    ;; Idempotation 5: a v false == a
    [(fn [expr] (and (disjunction? expr)
                     (let [[a b] (args expr)
@@ -329,18 +332,18 @@
                       (or (= a const-true)
                           (= b const-true)))))
     (fn [_ _] (constant true))]
-   
+
    ;; Contradiction law: a ^ !a == false
    [(fn [expr] (and (conjunction? expr)
                     (let [[a b] (args expr)]
                       (letfn [(equality-with-negation [expr1 expr2]
-                                                      (and (negation? expr1)
-                                                           (let [[arg] (args expr1)]
-                                                             (= arg expr2))))]
+                                (and (negation? expr1)
+                                     (let [[arg] (args expr1)]
+                                       (= arg expr2))))]
                         (or (equality-with-negation a b)
                             (equality-with-negation b a))))))
     (fn [_ _] (constant false))]
-   
+
    ;; Excluded third law: a v !a == true
    [(fn [expr] (and (disjunction? expr)
                     (let [[a b] (args expr)]
@@ -351,17 +354,16 @@
                         (or (equality-with-negation a b)
                             (equality-with-negation b a))))))
     (fn [_ _] (constant true))]
-   
+
    ;; Otherwise, leave expression as is, if it's atom
    [(fn [expr] (atom? expr))
     (fn [expr _] expr)]
-   
+
    ;; Or apply the same operation, if it is
    [(fn [expr] (operation? expr))
     (fn [expr _] (let [op (operation expr)
                        args (args expr)]
-                   (op (map simplify args))))]
-   ))
+                   (apply op (map simplify args))))]))
 
 ;; PUBLIC FUNCTIONS WHICH YOU NORMALLY HAVE TO USE
 
@@ -371,7 +373,8 @@
    expr
    (apply-translation-to-basis) ;; Stage 1
    (push-negation-to-atoms) ;; Stage 2 & 3
-   (apply-distribution-rules))) ;; Stage 4
+   (apply-distribution-rules) ;; Stage 4
+   (simplify))) ;; Stage 4+
 
 (defn signify-variable
   [expr var val]
