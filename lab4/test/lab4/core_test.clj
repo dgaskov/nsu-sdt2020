@@ -213,7 +213,7 @@
       (test/is (= (alcore/apply-distribution-rules
                    (alcore/conjunction (alcore/disjunction x y)
                                        z))
-                  
+
                   (alcore/disjunction (alcore/conjunction x z)
                                       (alcore/conjunction y z)))))
 
@@ -221,10 +221,67 @@
       (test/is (= (alcore/apply-distribution-rules
                    (alcore/conjunction x
                                        (alcore/disjunction y z)))
-                  
+
                   (alcore/disjunction (alcore/conjunction x y)
                                       (alcore/conjunction x z)))))))
 
+
+
+;; SIMPLIFYING EXPRESSION
+
+(test/deftest test-simplify
+  (let [a (alcore/variable :a)
+        const-false (alcore/constant false)
+        const-true (alcore/constant true)]
+
+    (test/testing "Testing simplification of idempotation 1"
+      (test/is (= (alcore/simplify
+                   (alcore/conjunction a a))
+                  a)))
+
+    (test/testing "Testing simplification of idempotation 2"
+      (test/is (= (alcore/simplify
+                   (alcore/disjunction a a))
+                  a)))
+
+    (test/testing "Testing simplification of idempotation 3"
+      (test/is (= (alcore/simplify
+                   (alcore/conjunction a const-false))
+                  const-false)))
+
+    (test/testing "Testing simplification of idempotation 4"
+      (test/is (= (alcore/simplify
+                   (alcore/conjunction a const-true))
+                  a)))
+
+    (test/testing "Testing simplification of idempotation 5"
+      (test/is (= (alcore/simplify
+                   (alcore/disjunction a const-false))
+                  a)))
+
+    (test/testing "Testing simplification of idempotation 6"
+      (test/is (= (alcore/simplify
+                   (alcore/disjunction a const-true))
+                  const-true)))
+
+    (test/testing "Testing simplification of contradiction law"
+      (test/is (= (alcore/simplify
+                   (alcore/conjunction a (alcore/negation a)))
+                  const-false))
+
+      (test/is (= (alcore/simplify
+                   (alcore/conjunction (alcore/negation a) a))
+                  const-false)))
+    
+    (test/testing "Testing simplification of excluded third law"
+      (test/is (= (alcore/simplify
+                   (alcore/disjunction a (alcore/negation a)))
+                  const-true))
+
+      (test/is (= (alcore/simplify
+                   (alcore/disjunction (alcore/negation a) a))
+                  const-true)))
+    ))
 
 
 ;; DNF. COMBINATION OF ALL THE METHODS ABOVE

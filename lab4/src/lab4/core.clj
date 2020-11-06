@@ -29,26 +29,16 @@
   (catch Exception exc
     (println (ex-message exc) (ex-data exc))))
 
+(def expr (alcore/make-dnf e))
 
-(def x (alcore/variable :x))
-(def y (alcore/variable :y))
-(def z (alcore/variable :z))
+(def ex1 (alcore/signify-variable-and-make-dnf expr a false))
+(def ex2 (alcore/signify-variable-and-make-dnf ex1 b true))
+(def ex3 (alcore/signify-variable-and-make-dnf ex2 c true))
+(def ex4 (alcore/signify-variable-and-make-dnf ex3 d true))
 
-(def expr (alcore/conjunction x
-                              (alcore/disjunction y z)))
+(alcore/simplify ex4)
 
-(alcore/apply-distribution-rules expr)
-
-(def condd (fn [expr] (or (alcore/constant? expr)
-                         (alcore/variable? expr)
-
-                         (and (alcore/negation expr)
-                              
-                              (if-let [[arg] (alcore/args expr)]
-                                (or (alcore/constant? arg)
-                                    (alcore/variable? arg))
-                                false)))))
-
-(condd expr)
-
-(alcore/negation? expr)
+(try
+  (alcore/simplify ex4)
+  (catch Exception exc
+    (println (ex-message exc) (ex-data exc))))

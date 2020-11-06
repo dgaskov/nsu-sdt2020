@@ -71,6 +71,22 @@
 
 ;; COMMON UTILS
 
+(defn atom?
+  [expr]
+  ((some-fn constant?
+            variable?)
+   expr))
+
+(defn operation? [expr]
+  ((some-fn conjunction?
+            disjunction?
+            negation?)
+   expr))
+
+(defn operation [expr]
+  (when (operation? expr)
+    (first expr)))
+
 (defn args [expr]
   (rest expr))
 
@@ -109,8 +125,7 @@
 
    ;;  Expressions, which are `atoms` - constants, variables
    ;;  should be passed as is.
-   [(fn [expr] (or (constant? expr)
-                   (variable? expr)))
+   [(fn [expr] (atom? expr))
     (fn [expr _] expr)]
 
    [(fn [expr] (conjunction? expr))
@@ -146,8 +161,7 @@
 
    ;;  Expressions, which are `atoms` - constants, variables
    ;;  should be marked with pushed negation, if needed.
-   [(fn [expr] (or (constant? expr)
-                   (variable? expr)))
+   [(fn [expr] (atom? expr))
     (fn [expr [use-negation]] (if use-negation
                                 (negation expr)
                                 expr))]
@@ -185,13 +199,11 @@
 
    ;;  Expressions, which are `atoms` - constants, variables or their's negation
    ;;  should be passed as is.
-   [(fn [expr] (or (constant? expr)
-                   (variable? expr)
+   [(fn [expr] (or (atom? expr)
 
                    (and (negation? expr)
                         (if-let [[arg] (args expr)]
-                          (or (constant? arg)
-                              (variable? arg))
+                          (atom? arg)
                           false))))
     (fn [expr _] expr)]
 
@@ -263,6 +275,94 @@
   [expr var val]
   (apply-translation-table expr signify-variable-with-value--table var val))
 
+
+;; SIMPLIFYING EXPRESSION
+(declare simplify)
+
+(def simplify--table
+  (list
+
+   ;; Idempotation 1: a ^ a == a
+   [(fn [expr] (and (conjunction? expr)
+                    (let [[a b] (args expr)]
+                      (= a b))))
+    (fn [expr _] (simplify (first (args expr))))]
+
+   ;; Idempotation 2: a v a == a
+   [(fn [expr] (and (disjunction? expr)
+                    (let [[a b] (args expr)]
+                      (= a b))))
+    (fn [expr _] (simplify (first (args expr))))]
+
+   ;; Idempotation 3: a ^ false == false
+   [(fn [expr] (and (conjunction? expr)
+                    (let [[a b] (args expr)
+                          const-false (constant false)]
+                      (or (= a const-false)
+                          (= b const-false)))))
+    (fn [_ _] (constant false))]
+   
+   ;; Idempotation 4: a ^ true == a
+   [(fn [expr] (and (conjunction? expr)
+                    (let [[a b] (args expr)
+                          const-true (constant true)]
+                      (or (= a const-true)
+                          (= b const-true)))))
+    (fn [expr _] (let [[a b] (args expr)
+                       const-true (constant true)]
+                   (simplify (if (= a const-true) b a))))]
+   
+   ;; Idempotation 5: a v false == a
+   [(fn [expr] (and (disjunction? expr)
+                    (let [[a b] (args expr)
+                          const-false (constant false)]
+                      (or (= a const-false)
+                          (= b const-false)))))
+    (fn [expr _] (let [[a b] (args expr)
+                       const-false (constant false)]
+                   (simplify (if (= a const-false) b a))))]
+
+   ;; Idempotation 6: a v true == true
+   [(fn [expr] (and (disjunction? expr)
+                    (let [[a b] (args expr)
+                          const-true (constant true)]
+                      (or (= a const-true)
+                          (= b const-true)))))
+    (fn [_ _] (constant true))]
+   
+   ;; Contradiction law: a ^ !a == false
+   [(fn [expr] (and (conjunction? expr)
+                    (let [[a b] (args expr)]
+                      (letfn [(equality-with-negation [expr1 expr2]
+                                                      (and (negation? expr1)
+                                                           (let [[arg] (args expr1)]
+                                                             (= arg expr2))))]
+                        (or (equality-with-negation a b)
+                            (equality-with-negation b a))))))
+    (fn [_ _] (constant false))]
+   
+   ;; Excluded third law: a v !a == true
+   [(fn [expr] (and (disjunction? expr)
+                    (let [[a b] (args expr)]
+                      (letfn [(equality-with-negation [expr1 expr2]
+                                (and (negation? expr1)
+                                     (let [[arg] (args expr1)]
+                                       (= arg expr2))))]
+                        (or (equality-with-negation a b)
+                            (equality-with-negation b a))))))
+    (fn [_ _] (constant true))]
+   
+   ;; Otherwise, leave expression as is, if it's atom
+   [(fn [expr] (atom? expr))
+    (fn [expr _] expr)]
+   
+   ;; Or apply the same operation, if it is
+   [(fn [expr] (operation? expr))
+    (fn [expr _] (let [op (operation expr)
+                       args (args expr)]
+                   (op (map simplify args))))]
+   ))
+
 ;; PUBLIC FUNCTIONS WHICH YOU NORMALLY HAVE TO USE
 
 (defn make-dnf
@@ -282,3 +382,7 @@
 (defn signify-variable-and-make-dnf
   [expr var val]
   (make-dnf (signify-variable-with-value expr var val)))
+
+(defn simplify
+  [expr]
+  (apply-translation-table expr simplify--table))
