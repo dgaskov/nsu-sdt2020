@@ -3,12 +3,13 @@
   (:require [lab3.common :as cmn]))
 
 (defn pfilter
-  [f coll block-size batch-size]
-  (let [partitioned (cmn/partit block-size coll)
-        lazy-filtered (map #(future (doall (filter f %))) partitioned)
-        recursive-worker (fn recursive-worker [fs]
-                           (lazy-seq
-                            (when-let [batch (seq (take batch-size fs))]
-                              (let [fair-calculated (mapcat deref (doall batch))]
-                                (cons fair-calculated (recursive-worker (drop batch-size fs)))))))]
-    (mapcat identity (recursive-worker lazy-filtered))))
+  [f coll chunk-size batch-size]
+  (let [chunks (cmn/partit chunk-size coll)
+        lazy-filtered-chunks (map #(future (doall (filter f %))) chunks)
+        batches (cmn/partit batch-size lazy-filtered-chunks)
+        recursive-worker (fn recursive-worker [futures]
+                                (lazy-seq
+                                 (when-let [first-future-batch (first futures)]
+                                   (let [fair-calculated (mapcat deref (doall first-future-batch))]
+                                     (cons fair-calculated (recursive-worker (rest futures)))))))]
+    (mapcat identity (recursive-worker batches))))
